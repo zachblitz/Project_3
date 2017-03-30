@@ -39,16 +39,34 @@ api = tweepy.API(auth, parser=tweepy.parsers.JSONParser())
 
 CACHE_FNAME = "SI206_project3_cache.json"
 # Put the rest of your caching setup here:
-
-
+try:
+	cache_file = open(CACHE_FNAME,'r')
+	cache_contents = cache_file.read()
+	cache_file.close()
+	CACHE_DICTION = json.loads(cache_contents)
+except:
+	CACHE_DICTION = {}
 
 # Define your function get_user_tweets here:
+input_handle = input("Enter a Twitter Handle: ")
+def get_user_tweets(input_handle):
 
+	x = 'twitter_{}.'.format(input_handle)
+	if x in CACHE_DICTION:
+		return CACHE_DICTION[x]
 
+	else:
+		results = api.user_timeline(input_handle)
+		CACHE_DICTION[x] = results
+
+		cache_file = open(CACHE_FNAME, 'w')
+		cache_file.write(json.dumps(CACHE_DICTION))
+		cache_file.close()
+		return CACHE_DICTION[x]
 
 
 # Write an invocation to the function for the "umich" user timeline and save the result in a variable called umich_tweets:
-
+umich_tweets = get_user_tweets("umich")
 
 
 
@@ -82,8 +100,23 @@ CACHE_FNAME = "SI206_project3_cache.json"
 ## HINT: There's a Tweepy method to get user info that we've looked at before, so when you have a user id or screenname you can find alllll the info you want about the user.
 ## HINT #2: You may want to go back to a structure we used in class this week to ensure that you reference the user correctly in each Tweet record.
 ## HINT #3: The users mentioned in each tweet are included in the tweet dictionary -- you don't need to do any manipulation of the Tweet text to find out which they are! Do some nested data investigation on a dictionary that represents 1 tweet to see it!
+conn = sqlite3.connect('project3_tweets.db')
+cur = conn.cursor()
 
+cur.execute('DROP TABLE IF EXISTS Tweets')
+table_spec = 'CREATE TABLE IF NOT EXISTS Tweets(tweet_id TEXT PRIMARY KEY, text TEXT, user_id TEXT, time_posted TIMESTAMP, retweets INTEGER)'
+cur.execute(table_spec)
 
+cur.execute('DROP TABLE IF EXISTS Users')
+table_spec = 'CREATE TABLE IF NOT EXISTS Users(user_id TEXT PRIMARY KEY, screen_name TEXT, num_favs INTEGER, description TEXT)'
+cur.execute(table_spec)
+
+statement = 'DELETE FROM Tweets'
+cur.execute(statement)
+statement = 'DELETE FROM Users'
+cur.execute(statement)
+ 
+conn.commit()
 
 
 
