@@ -14,8 +14,8 @@ import twitter_info # same deal as always...
 import json
 import sqlite3
 
-## Your name:
-## The names of anyone you worked with on this project:
+## Your name: Zachary Blitz
+## The names of anyone you worked with on this project: Jake Kreinik
 
 #####
 
@@ -48,7 +48,6 @@ except:
 	CACHE_DICTION = {}
 
 # Define your function get_user_tweets here:
-input_handle = input("Enter a Twitter Handle: ")
 def get_user_tweets(input_handle):
 
 	x = 'twitter_{}.'.format(input_handle)
@@ -104,21 +103,56 @@ conn = sqlite3.connect('project3_tweets.db')
 cur = conn.cursor()
 
 cur.execute('DROP TABLE IF EXISTS Tweets')
+cur.execute('DROP TABLE IF EXISTS Users')
+
 table_spec = 'CREATE TABLE IF NOT EXISTS Tweets(tweet_id TEXT PRIMARY KEY, text TEXT, user_id TEXT, time_posted TIMESTAMP, retweets INTEGER)'
 cur.execute(table_spec)
 
-cur.execute('DROP TABLE IF EXISTS Users')
 table_spec = 'CREATE TABLE IF NOT EXISTS Users(user_id TEXT PRIMARY KEY, screen_name TEXT, num_favs INTEGER, description TEXT)'
 cur.execute(table_spec)
-
-statement = 'DELETE FROM Tweets'
-cur.execute(statement)
-statement = 'DELETE FROM Users'
-cur.execute(statement)
  
 conn.commit()
 
+tweets_list = []
+for x in umich_tweets:
+	tweet_id = x["id_str"]
+	text = x["text"]
+	user_id = x["user"]["id_str"]
+	time_posted = x["created_at"]
+	retweets = x["retweet_count"]
 
+	tweet_tuple = (tweet_id, text, user_id, time_posted, retweets)
+	tweets_list.append(tweet_tuple)
+
+
+
+statement = 'INSERT INTO Tweets VALUES (?,?,?,?,?)'
+for x in tweets_list:
+	cur.execute(statement, x)
+
+conn.commit()
+
+# user_list = []
+# for x in umich_tweets:
+# 	user_id = x["user"]["id_str"]
+# 	screen_name = x["user"]["screen_name"]
+# 	num_favs = x["user"]["favourites_count"]
+# 	description = x["user"]["description"]
+
+# 	user_tuple = (user_id, screen_name, num_favs, description)
+# 	user_list.append(user_tuple)
+
+statement2 = 'INSERT INTO Users VALUES (?,?,?,?)'
+# for x in user_list:
+# 	cur.execute(statement, x)
+
+for x in umich_tweets:
+	names = x["entities"]["user_mentions"]
+	for name in names:
+		user = api.get_user(name["screen_name"]) 
+		cur.execute(statement2, (user["id_str"], user["screen_name"], user["favourites_count"], user["description"]))
+
+conn.commit()
 
 
 
@@ -131,41 +165,68 @@ conn.commit()
 # All of the following sub-tasks require writing SQL statements and executing them using Python.
 
 # Make a query to select all of the records in the Users database. Save the list of tuples in a variable called users_info.
-
+records = 'SELECT * FROM Users'
+cur.execute(records)
+users_info = cur.fetchall()
 # Make a query to select all of the user screen names from the database. Save a resulting list of strings (NOT tuples, the strings inside them!) in the variable screen_names. HINT: a list comprehension will make this easier to complete!
-
+user_screen_names = 'SELECT screen_name FROM Users'
+cur.execute(user_screen_names)
+list_tuple = cur.fetchall()
+screen_names = [x[0] for x in list_tuple]
 
 # Make a query to select all of the tweets (full rows of tweet information) that have been retweeted more than 25 times. Save the result (a list of tuples, or an empty list) in a variable called more_than_25_rts.
-
+tweets = "SELECT * FROM Tweets WHERE retweets > 25"
+cur.execute(tweets)
+more_than_25_rts = cur.fetchall()
 
 
 # Make a query to select all the descriptions (descriptions only) of the users who have favorited more than 25 tweets. Access all those strings, and save them in a variable called descriptions_fav_users, which should ultimately be a list of strings.
-
+over_25 = "SELECT description FROM Users WHERE num_favs > 25"
+cur.execute(over_25)
+dftup = cur.fetchall()
+descriptions_fav_users = [x[0] for x in dftup]
 
 
 # Make a query using an INNER JOIN to get a list of tuples with 2 elements in each tuple: the user screenname and the text of the tweet -- for each tweet that has been retweeted more than 50 times. Save the resulting list of tuples in a variable called joined_result.
-
+query_join_statement = "SELECT Users.screen_name, Tweets.text from Users INNER JOIN Tweets ON instr(Users.user_id, Tweets.user_id) WHERE (Tweets.retweets > 50)"
+cur.execute(query_join_statement)
+joined_result = cur.fetchall()
 
 
 
 ## Task 4 - Manipulating data with comprehensions & libraries
 
 ## Use a set comprehension to get a set of all words (combinations of characters separated by whitespace) among the descriptions in the descriptions_fav_users list. Save the resulting set in a variable called description_words.
-
+description_words = {word for line in descriptions_fav_users for word in line.split()}
 
 
 ## Use a Counter in the collections library to find the most common character among all of the descriptions in the descriptions_fav_users list. Save that most common character in a variable called most_common_char. Break any tie alphabetically (but using a Counter will do a lot of work for you...).
+continuous_variable = collections.Counter()
 
+for word in descriptions_fav_users:
+	for character in word.split():
+		for z in list(character):
+			if z in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
+				continuous_variable[z.lower()] += 1
+
+most_common_char = continuous_variable.most_common(1)[0][0]
 
 
 ## Putting it all together...
 # Write code to create a dictionary whose keys are Twitter screen names and whose associated values are lists of tweet texts that that user posted. You may need to make additional queries to your database! To do this, you can use, and must use at least one of: the DefaultDict container in the collections library, a dictionary comprehension, list comprehension(s). Y
 # You should save the final dictionary in a variable called twitter_info_diction.
-
+twitter_info_diction = {}
+sql_queries = [("SELECT TEXT FROM Tweets INNER JOIN Users WHERE screen_name='" + name + "'") for name in screen_names]
+for query in sql_queries:
+	cur.execute(query)
+	user_tt = cur.fetchall()
+	usertweets = [x[0] for x in user_tt]
+	each_name = screen_names[sql_queries.index(query)]
+	twitter_info_diction[each_name] = usertweets
 
 
 ### IMPORTANT: MAKE SURE TO CLOSE YOUR DATABASE CONNECTION AT THE END OF THE FILE HERE SO YOU DO NOT LOCK YOUR DATABASE (it's fixable, but it's a pain). ###
-
+conn.close()
 
 ###### TESTS APPEAR BELOW THIS LINE ######
 ###### Note that the tests are necessary to pass, but not sufficient -- must make sure you've followed the instructions accurately! ######
