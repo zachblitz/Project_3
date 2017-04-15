@@ -13,7 +13,7 @@ import tweepy
 import twitter_info # same deal as always...
 import json
 import sqlite3
-
+from pprint import pprint
 ## Your name: Zachary Blitz
 ## The names of anyone you worked with on this project: Jake Kreinik
 
@@ -65,8 +65,8 @@ def get_user_tweets(input_handle):
 
 
 # Write an invocation to the function for the "umich" user timeline and save the result in a variable called umich_tweets:
-umich_tweets = get_user_tweets("umich")
-
+umich_tweets = get_user_tweets("Christopher Nolan")
+#pprint(umich_tweets[0])
 
 
 ## Task 2 - Creating database and loading data into database
@@ -113,6 +113,12 @@ cur.execute(table_spec)
  
 conn.commit()
 
+def unique(x,y):
+	for tuples in y:
+		if x[0] == tuples[0]:
+			return False
+	return True
+
 tweets_list = []
 for x in umich_tweets:
 	tweet_id = x["id_str"]
@@ -122,7 +128,8 @@ for x in umich_tweets:
 	retweets = x["retweet_count"]
 
 	tweet_tuple = (tweet_id, text, user_id, time_posted, retweets)
-	tweets_list.append(tweet_tuple)
+	if unique(tweet_tuple, tweets_list) == True:
+			tweets_list.append(user_tuple)
 
 
 
@@ -132,25 +139,25 @@ for x in tweets_list:
 
 conn.commit()
 
-# user_list = []
-# for x in umich_tweets:
-# 	user_id = x["user"]["id_str"]
-# 	screen_name = x["user"]["screen_name"]
-# 	num_favs = x["user"]["favourites_count"]
-# 	description = x["user"]["description"]
 
-# 	user_tuple = (user_id, screen_name, num_favs, description)
-# 	user_list.append(user_tuple)
 
-statement2 = 'INSERT INTO Users VALUES (?,?,?,?)'
-# for x in user_list:
-# 	cur.execute(statement, x)
-
+users_list = []
 for x in umich_tweets:
 	names = x["entities"]["user_mentions"]
 	for name in names:
-		user = api.get_user(name["screen_name"]) 
-		cur.execute(statement2, (user["id_str"], user["screen_name"], user["favourites_count"], user["description"]))
+		user = api.get_user(name["screen_name"])
+		user_id = user["id_str"]
+		screen_name = user["screen_name"]
+		num_favs = user["favourites_count"]
+		description = user["description"]
+
+		user_tuple = (user_id, screen_name, num_favs, description)
+		if unique(user_tuple, users_list) == True:
+			users_list.append(user_tuple)
+
+statement2 = 'INSERT INTO Users VALUES (?,?,?,?)'
+for x in users_list:
+	cur.execute(statement2, x)
 
 conn.commit()
 
@@ -197,19 +204,26 @@ joined_result = cur.fetchall()
 ## Task 4 - Manipulating data with comprehensions & libraries
 
 ## Use a set comprehension to get a set of all words (combinations of characters separated by whitespace) among the descriptions in the descriptions_fav_users list. Save the resulting set in a variable called description_words.
-description_words = {word for line in descriptions_fav_users for word in line.split()}
+words = []
+
+for person in descriptions_fav_users:
+	user_words = re.findall(r"[A-z0-9]+", person)
+	for each_word in user_words:
+		words.append(each_word)
+
+description_words = {x for x in words}
 
 
 ## Use a Counter in the collections library to find the most common character among all of the descriptions in the descriptions_fav_users list. Save that most common character in a variable called most_common_char. Break any tie alphabetically (but using a Counter will do a lot of work for you...).
-continuous_variable = collections.Counter()
+characters = []
+for user in descriptions_fav_users:
+	user_characters = re.findall(r"[A-z0-9]", user)
+	for character in user_characters:
+		characters.append(character)
 
-for word in descriptions_fav_users:
-	for character in word.split():
-		for z in list(character):
-			if z in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
-				continuous_variable[z.lower()] += 1
+most_common_char = collections.Counter(characters).most_common(1)
+most_common_char = most_common_char[0][0]
 
-most_common_char = continuous_variable.most_common(1)[0][0]
 
 
 ## Putting it all together...
